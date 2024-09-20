@@ -67,13 +67,14 @@ function Get-Password {
 }
 
 # Function to list all stored usernames
-function List-Usernames {
+function Get-Usernames {
     # Import the credentials from the encrypted file
     $credentials = Import-Csv -Path $encryptedFile
     
-    # Display all usernames
-    $credentials | ForEach-Object { Write-Host "Username: $($_.Username)" }
+    # Display all usernames in tabular format
+    $credentials | Format-Table -Property Username -AutoSize
 }
+
 
 # Check which switch was provided and run the appropriate function
 if ($AddCredential -and $Username) {
@@ -81,7 +82,7 @@ if ($AddCredential -and $Username) {
 } elseif ($GetPassword -and $Username) {
     Get-Password -Username $Username -CopyToClipboard:$CopyToClipboard
 } elseif ($ListUsernames) {
-    List-Usernames
+    Get-Usernames
 } else {
     Write-Host "Invalid usage. Please provide the necessary switches."
     Write-Host "Usage:"
