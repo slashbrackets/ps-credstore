@@ -1,4 +1,3 @@
-# Command-line argument handling
 param (
     [switch]$AddCredential,
     [string]$Username,
@@ -7,58 +6,54 @@ param (
     [switch]$CopyToClipboard
 )
 
-# Define the path for the encrypted file
 $encryptedFile = "$env:USERPROFILE\credstore.txt"
+$keyFile = "$env:USERPROFILE\credvaultkey.txt"
 
-# Function to store a username and password securely
+function Get-EncryptionKey {
+    if (-Not (Test-Path $keyFile)) {
+        $key = (1..32 | ForEach-Object { Get-Random -Minimum 0 -Maximum 255 })
+        [IO.File]::WriteAllBytes($keyFile, [byte[]]$key)
+        Write-Host "New encryption key generated and stored securely."
+    }
+    return [IO.File]::ReadAllBytes($keyFile)
+}
+
+$secureKey = Get-EncryptionKey
+
 function Add-Credential {
     param(
         [string]$Username
     )
     
-    # Prompt the user to enter a password securely
     $password = Read-Host "Enter password" -AsSecureString
+    $encryptedPassword = $password | ConvertFrom-SecureString -Key $secureKey
     
-    # Convert the secure password to an encrypted string
-    $encryptedPassword = $password | ConvertFrom-SecureString
-    
-    # Create a PSObject with username and encrypted password
     $credential = [PSCustomObject]@{
         Username = $Username
         Password = $encryptedPassword
     }
 
-    # Append the credential to the encrypted file
     $credential | Export-Csv -Path $encryptedFile -Append -NoTypeInformation
     Write-Host "Credential stored securely."
 }
 
-# Function to retrieve a password for a given username
 function Get-Password {
     param(
         [string]$Username,
         [switch]$CopyToClipboard
     )
     
-    # Import the credentials from the encrypted file
     $credentials = Import-Csv -Path $encryptedFile
-    
-    # Find the matching username
     $credential = $credentials | Where-Object { $_.Username -eq $Username }
     
     if ($credential) {
-        # Convert the encrypted password back to a secure string
-        $securePassword = $credential.Password | ConvertTo-SecureString
-        
-        # Convert the secure string to plain text (only in memory)
+        $securePassword = $credential.Password | ConvertTo-SecureString -Key $secureKey
         $plainPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword))
         
         if ($CopyToClipboard) {
-            # Copy the password to clipboard
             $plainPassword | Set-Clipboard
             Write-Host "Password for $Username has been copied to the clipboard."
         } else {
-            # Display the password
             Write-Host "Password for $Username is ${plainPassword}"
         }
     } else {
@@ -66,23 +61,17 @@ function Get-Password {
     }
 }
 
-# Function to list all stored usernames
-function Get-Usernames {
-    # Import the credentials from the encrypted file
+function List-Usernames {
     $credentials = Import-Csv -Path $encryptedFile
-    
-    # Display all usernames in tabular format
     $credentials | Format-Table -Property Username -AutoSize
 }
 
-
-# Check which switch was provided and run the appropriate function
 if ($AddCredential -and $Username) {
     Add-Credential -Username $Username
 } elseif ($GetPassword -and $Username) {
     Get-Password -Username $Username -CopyToClipboard:$CopyToClipboard
 } elseif ($ListUsernames) {
-    Get-Usernames
+    List-Usernames
 } else {
     Write-Host "Invalid usage. Please provide the necessary switches."
     Write-Host "Usage:"
