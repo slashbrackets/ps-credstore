@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  A PowerShell script as a very lightweight way of securely managing credentials.
+  A lightweight PowerShell script for securely managing credentials.
 
 .DESCRIPTION
   This script allows users to securely store, update, and retrieve credentials (usernames and passwords) 
